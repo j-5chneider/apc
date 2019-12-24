@@ -1,6 +1,6 @@
 # apc
 
-How are open access APCs distributed over publishers and publishing models?
+How are open access APCs distributed over publishers and publishing models?  
 How many hybrid or full OA journals can I afford with a certain amount of money?
 
 ## The app
@@ -10,9 +10,11 @@ How many hybrid or full OA journals can I afford with a certain amount of money?
 * what to differentiate by color (publisher, publishing model)
 * where to set your APC-limit (to see how many APCs you can afford)
 
+Simply dowload the R project and run the `dash.Rmd` file.
+
 ## Author
 __Jürgen Schneider__  
-`r icon("twitter", class = NULL, lib = "font-awesome")` ['@artzyatfailing2'](https://twitter.com/artzyatfailing2)  
+__Twitter__: ['@artzyatfailing2'](https://twitter.com/artzyatfailing2)  
 __iD__: [orcid.org/0000-0002-3772-4198](https://orcid.org/0000-0002-3772-4198)  
 Contact me if you have ideas for improvements or want to send memes.  
 
@@ -20,7 +22,7 @@ Contact me if you have ideas for improvements or want to send memes.
 \
 
 ## Raincloud plots
-show some love for: Allen M, Poggiali D, Whitaker K et al. Raincloud plots: a multi-platform tool for robust data visualization [version 1; peer review: 2 approved]. Wellcome Open Res 2019, 4:63. DOI: [10.12688/wellcomeopenres.15191.1](doi.org/10.12688/wellcomeopenres.15191.1)  
+We used [raincloud plots](https://github.com/RainCloudPlots/RainCloudPlots) in the app. Show some love for: Allen M, Poggiali D, Whitaker K et al. Raincloud plots: a multi-platform tool for robust data visualization [version 1; peer review: 2 approved]. Wellcome Open Res 2019, 4:63. DOI: [10.12688/wellcomeopenres.15191.1](doi.org/10.12688/wellcomeopenres.15191.1)  
 
 ## Datasets taken from
 [retrieved: Dec 21st 2019]  
