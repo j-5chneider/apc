@@ -234,7 +234,7 @@ wellPanel(
               ticks = F, post = " $"),      
   renderText(paste("I can afford an article in", aff_r(),             # inform how many APCs are affordable
                    "of", all,                                         # inform how many journals are observed on total
-                   "journals. That is", perc_r(), "%."))              # inform what percentage of APCs are affordable
+                   "journals. That is ~", perc_r(), "%."))              # inform what percentage of APCs are affordable
 )
 ```
 
@@ -342,3 +342,9 @@ Allen M, Poggiali D, Whitaker K et al. Raincloud plots: a multi-platform tool fo
 * https://www.degruyter.com/staticfiles/pdfs/titlelist/191022_De_Gruyter_Journals_Yearbooks_2020_Open_Access_USD.xlsx"
 * https://authorservices.wiley.com/asset/Wiley-Journal-APCs-OnlineOpen.xlsx"
 * https://authorservices.wiley.com/asset/Wiley-Journal-APCs-Open-Access.xlsx"
+
+### Raw data table
+
+```{r}
+DT::renderDataTable(apc)
+```
