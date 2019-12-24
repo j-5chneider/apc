@@ -1,5 +1,7 @@
 # apc
 
+Access app here: [bit.ly/apc-dash](https://bit.ly/apc-dash)  
+  
 How are open access APCs distributed over publishers and publishing models?  
 How many hybrid or full OA journals can I afford with a certain amount of money?
 
