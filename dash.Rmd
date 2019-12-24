@@ -1,0 +1,344 @@
+---
+title: "APCs - an overview"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(tidyverse)
+library(rio)
+library(plotly)
+
+# ## download price lists from the randomly selected publishers
+#   # elsevier Hybrid & full OA
+#   tryCatch(
+#     download.file(url = "https://www.elsevier.com/__data/promis_misc/j.custom97.xlsx",         
+#                   destfile = "data/els.xlsx"),
+#     error = function(e){}
+#   )
+#   # springer Hybrid
+#   tryCatch(
+#     download.file(url = "https://media.springernature.com/full/springer-cms/rest/v1/content/17339478/data/v13",
+#                   destfile = "data/spr_hy.xlsx"),
+#     error = function(e){}
+#   )
+#   # springer full OA
+#   tryCatch(
+#     download.file(url = "https://media.springernature.com/full/springer-cms/rest/v1/content/17278042/data/v17",
+#                   destfile = "data/spr_fu.xlsx"),
+#     error = function(e){}
+#   )
+#   # DeGruyter Hybrid
+#   tryCatch(
+#     download.file(url = "https://www.degruyter.com/staticfiles/pdfs/titlelist/191022_De_Gruyter_Journals_Yearbooks_2020_Paid_Access_USD.xlsx",         
+#                   destfile = "data/deg_hy.xlsx"),
+#     error = function(e){}
+#   )
+#   # DeGruyter full OA
+#   tryCatch(
+#     download.file(url = "https://www.degruyter.com/staticfiles/pdfs/titlelist/191022_De_Gruyter_Journals_Yearbooks_2020_Open_Access_USD.xlsx",         
+#                   destfile = "data/deg_fu.xlsx"),
+#     error = function(e){}
+#   )
+#   # Wiley Hybrid
+#   tryCatch(
+#     download.file(url = "https://authorservices.wiley.com/asset/Wiley-Journal-APCs-OnlineOpen.xlsx",
+#                   destfile = "data/wil_hy.xlsx"),
+#     error = function(e){}
+#   )
+#   # Wiley full OA
+#   tryCatch(
+#     download.file(url = "https://authorservices.wiley.com/asset/Wiley-Journal-APCs-Open-Access.xlsx",
+#                   destfile = "data/wil_fu.xlsx"),
+#     error = function(e){}
+#   )
+
+
+## some wrangling to align the currencies & column names
+  # elsevier
+    els <- import(file = "data/els.xlsx") %>%    # source of download see code in comments above
+      select(-1) %>%                             # delete ISSN column
+      slice(-1:-3)                               # delete irrelevant header columns
+    
+    names(els) <- c("title", "model", "currency", "price_un")   # rename columns
+    
+    els <- els %>%
+      mutate(price_un = as.numeric(price_un),
+             price = case_when(
+                        currency == "EUR" ~ price_un*1.11469,   # converting the EUR prices in $ US
+                        TRUE              ~ price_un            # exchange rate from 16th Dec 2019
+                        ),
+             publisher = "Elsevier",
+             model = case_when(
+                        model == "Hybrid" ~ "hybrid",
+                        model == "Open Access" ~ "full OA"
+                        )
+             ) %>%
+      select(-currency, -price_un)
+    
+  # Springer full OA
+    spr_fu <- import(file = "data/spr_fu.xlsx") %>%    # source of download see code in comments above
+      select(1,6,9) %>%                                # keep columns: journal title, model, price
+      slice(-1:-2)                                     # delete irrelevant header rows
+    
+    names(spr_fu) <- c("title", "model", "price")      # rename columns
+      
+    spr_fu <- spr_fu %>%
+      mutate(price = as.numeric(
+                      case_when(                       # recode price
+                        price == "see website" ~ NA_integer_, # insert NA, when "see website" because I'm lazy
+                        TRUE ~ as.integer(price))),           # else use value
+             publisher = "Springer",
+             model = "full OA")
+    
+  # Springer hybrid
+    spr_hy <- import(file = "data/spr_hy.xlsx") %>%    # source of download see code in comments above
+      select(1,6,9) %>%                                # keep columns: journal title, model, price
+      slice(-1:-2)                                     # delete irrelevant header rows
+    
+    names(spr_hy) <- c("title", "model", "price")
+      
+    spr_hy <- spr_hy %>%
+      mutate(price = as.numeric(
+                      case_when(                       # recode price
+                        price == "see website" ~ NA_integer_, # insert NA, when "see website" because I'm lazy
+                        TRUE ~ as.integer(price))),           # else use value
+             publisher = "Springer",
+             model = "hybrid")
+    
+  # DeGruyter Hybrid
+    deg_hy <- import(file = "data/deg_hy.xlsx") %>%   # source of download see code in comments above
+      select(4, 17, 24, 25) %>%                       # keep columns: journal title, subject, hybrid, price in €
+      slice(-1:-3)                                    # delete irrelevant header rows
+    
+    names(deg_hy) <- c("title", "subject", "hybrid", "price_eu")  # rename columns
+    
+    deg_hy <- deg_hy %>%
+      filter(hybrid == "Hybrid OA") %>%                                    # filter away non-OA journals
+      mutate(price = as.numeric(str_sub(price_eu, start = 1, -6))*1.11469, # converting the EUR prices in $ US
+             publisher = "DeGruyter",
+             model = "hybrid") %>%                                         # model is hybrid for this data set
+      select(-"price_eu", -"hybrid")
+  
+  # DeGruyter full OA
+    deg_fu <- import(file = "data/deg_fu.xlsx") %>% # source of download see code in comments above
+      select(4, 13, 19) %>%                         # keep columns: journal title, subject, price
+      slice(-1:-3)                                  # delete irrelevant header rows
+    
+    names(deg_fu) <- c("title", "subject", "price_eu")  # rename columns
+    
+    deg_fu <- deg_fu %>%
+      filter(!is.na(price_eu)) %>%                    # who needs NAs? I sure don't.
+      mutate(price = as.numeric(price_eu)*1.11469,    # converting the EUR prices in $ US
+             publisher = "DeGruyter",
+             model = "full OA") %>%                   # model is full OA for this data set
+      select(-"price_eu")
+    
+  # Wiley Hybrid
+    wil_hy <- import(file = "data/wil_hy.xlsx") %>%    # source of download see code in comments above
+      select(3, 4) %>%                       # keep columns: journal title and price
+      slice(-1:-4)                           # delete irrelevant header rows
+    
+    names(wil_hy) <- c("title", "price")     # rename columns
+    
+    wil_hy <- wil_hy %>%
+      mutate(price = as.numeric(price),     
+             publisher = "Wiley",
+             model = "hybrid")               # model is hybrid for this data set
+    
+    
+  # Wiley full OA
+    wil_fu <- import(file = "data/wil_fu.xlsx") %>%    # source of download see code in comments above
+      select(1, 5) %>%                       # keep columns
+      slice(-1:-4)                           # delete irrelevant header rows
+    
+    names(wil_fu) <- c("title", "price")     # rename columns
+    
+    wil_fu <- wil_fu %>%
+      mutate(price = as.numeric(price),     
+             publisher = "Wiley",
+             model = "full OA")               # model is full OA for this data set
+      
+
+
+
+## merge data sets
+  apc <- bind_rows(els, spr_hy, spr_fu, deg_hy, deg_fu, wil_hy, wil_fu)
+```
+
+Inputs {.sidebar data-width=300}
+-----------------------------------------------------------------------
+
+
+
+```{r }
+##################### #
+### USER INTERFACE ## #
+##################### #
+wellPanel(
+  selectInput("what", strong("I want to see the..."),    # basic selection of plots
+              c("distribution of APSs" = "distr",        # showing raaincloud plots
+                "APSs acending in order" = "ascen",      # showing APCs ordered in bars
+                "guy who won't desert me" = "rick")))    # showing the one and only rick
+
+wellPanel(
+conditionalPanel("input.what == 'distr'",                       # only show if plot is "distr"
+                 radioButtons("xaxis", strong("x-axis:"),       # allow own selection of x-axis
+                              c("all in one" = '""',
+                                "Publisher" = 'publisher',
+                                "Publishing Model" = 'model'),
+                              selected = "publisher"),
+                 hr(),
+                 radioButtons("col1", strong("Color:"),         # allow own selection of color
+                              c("same color" = '""',
+                                "Publisher" = 'publisher',
+                                "Publishing Model" = 'model'),
+                              selected = "model"),
+                 hr(),
+                 checkboxInput("points", strong("show data points pls"),    # checkbox to toggle visibility of points
+                               value = T),
+                 checkboxInput("boxpl", strong("show boxplot pls"),         # checkbox to toggle visibility of boxplots
+                               value = F),
+                 sliderInput("myad", strong("Smoothing"), 0.1, 3, 1.5, 0.1, ticks = F)),
+conditionalPanel("input.what == 'ascen'",                             # only show if plot is "ascen"
+                 radioButtons("facets", strong("Facets:"),            # allow own selection of facets
+                              c("all in one" = '""',
+                                "Publisher" = 'publisher',
+                                "Publishing Model" = 'model'),
+                              selected = "publisher"),
+                 hr(),
+                 radioButtons("col2", strong("Color:"),               # allow own selection of color
+                              c("same color" = '""',
+                                "Publisher" = 'publisher',
+                                "Publishing Model" = 'model'),
+                              selected = "model")),
+conditionalPanel("input.what == 'rick'",                              # only show if plot is "rick"
+                 renderText("He will not run around.")))              # praise the rick
+
+aff_r <- reactive({                                                   # compute the absolute number of journals
+              apc %>%                                                 # affordable with the selected amount of $ (input$pay)
+                summarise(aff = sum(price<=input$pay, na.rm=T))
+})
+
+all <- length(!is.na(apc$price))                                      # ge the absolute number of journals
+
+perc_r <- reactive({round(aff_r()/all*100, digits = 1)})              # compute the percentage of journals affordable 
+
+wellPanel(
+  sliderInput("pay", strong("If I pay..."),                           # select the amount of money to spend on APC
+              0, 6000, 1800, 50,                                      # from 0 to 6000 $
+              ticks = F, post = " $"),      
+  renderText(paste("I can afford an article in", aff_r(),             # inform how many APCs are affordable
+                   "of", all,                                         # inform how many journals are observed on total
+                   "journals. That is", perc_r(), "%."))              # inform what percentage of APCs are affordable
+)
+```
+
+Column {.tabset}
+-----------------------------------------------------------------------
+### Output
+
+```{r}
+# awesome rainclouds plots by
+# Allen M, Poggiali D, Whitaker K et al. Raincloud plots: a multi-platform tool for robust data visualization [version 1; peer review: 2 approved]. Wellcome Open Res 2019, 4:63. DOI: 10.12688/wellcomeopenres.15191.1
+# Github: https://github.com/RainCloudPlots/RainCloudPlots
+source("R_rainclouds.R")                                              # load the script for the raincloud plots (geom_flat_violin)
+
+points_r <- reactive({ifelse(input$points, 0.15, 0)})                 # alpha values for points based on input
+boxpl_r <- reactive({ifelse(input$boxpl, 0.3, 0)})                    # alpha values for boxplot fill based on input
+boxplc_r <- reactive({ifelse(input$boxpl, "#333333", NA)})            # color for boxplot border based on input
+nfacets <- reactive({case_when(input$facets == "" ~ 1,                # number of facet rows based on input$facets
+                               input$facets == "publisher" ~ 4,
+                               input$facets == "model" ~ 2)})
+
+
+conditionalPanel("input.what == 'rick'",                              # show the rick if plot is "rick" 
+                 HTML("<img src='webs/giphy.gif' /><br />Good lad."))
+
+
+renderPlot({
+  if(input$what == "distr"){                                                    # run if plot is "distr" 
+    p <- ggplot(apc, aes_string(x = input$xaxis, y = 'price', fill = input$col1)) +  # use aes_string when directly using input vars
+            geom_flat_violin(position = position_nudge(x = .22, y = 0),         # violin plots nudged a bit to the right
+                             adjust = input$myad,                               # smooth violin based on input
+                             trim = T, 
+                             alpha = .3, 
+                             colour = NA) +
+                      geom_point(position = position_jitter(width = .2),        # show jitter points of each journal, jitter only horizontal
+                                 size = 1, 
+                                 alpha = points_r(),                            # alpha based on input (alpha=0 if toggled off)
+                                 aes_string(color=input$col1)) +                # color based on input
+                      geom_boxplot(position = position_nudge(x = -.24, y = 0),  # show boxplot nudged to the left
+                                   outlier.shape = NA, 
+                                   alpha = boxpl_r(),                           # fill alpha based on input (alpha=0 if toggled off)
+                                   width = .05, 
+                                   colour = boxplc_r()) +                       # color of border based on input
+                      geom_hline(yintercept = input$pay,                        # show horizontal line at selected y value
+                                 color="black", 
+                                 linetype="dotted", 
+                                 alpha = .5, 
+                                 size = 2) +
+                      scale_colour_brewer(palette = "Set1")+                    # style settings from here down
+                      scale_y_continuous(expand = c(0, 0)) +
+                      scale_fill_brewer(palette = "Set1") +
+                      theme_light() +
+                      theme(axis.line = element_line(colour = "#696f71"),
+                            panel.grid.major = element_blank(),
+                            panel.grid.minor = element_blank(),
+                            panel.border = element_blank(),
+                            panel.background = element_rect(fill = "#f6f7f7")) +
+            labs(caption = "Note: Each point is the APC of one journal.", 
+                 y = "US $")
+  }
+  
+    if(input$what == "ascen"){                                               # run if plot is "ascen" 
+    p <- ggplot(apc, aes_string(x = 'reorder(title, price)', y = 'price', fill = input$col2)) +  # order APCs ascending by price, x axis categorical (!)
+            geom_bar(stat="identity",                                        # make bar plot, bars with same prices next to each other
+                     alpha = .4) +
+            facet_wrap(as.formula(paste("~", input$facets)),                 # wrap by selected input
+                       nrow = nfacets(),                                     # wrap only in rows, number of rows computed earlier
+                       strip.position = "right") +
+            xlab("APC prices ordered") +                                     # style settings from here down
+            theme(axis.text.x=element_blank(),
+                  axis.ticks.x=element_blank())+
+            labs(caption = "Note: Each bar is the APC of one journal.", 
+                 x = "APC prices ordered")
+    }
+  
+  p                                                                          # return the plot
+})
+```
+
+### Details
+\
+
+<h3>Author</h3>
+__Jürgen Schneider__  
+`r icon("twitter", class = NULL, lib = "font-awesome")` ['@artzyatfailing2'](https://twitter.com/artzyatfailing2)  
+__iD__: [orcid.org/0000-0002-3772-4198](https://orcid.org/0000-0002-3772-4198)  
+Contact me if you have ideas for improvements or want to send memes.  
+
+\
+\
+
+<h3>Code of app</h3>
+`r icon("github", class = NULL, lib = "font-awesome")` [github: j-5chneider](https://github.com/j-5chneider/apc)  
+
+<h3>Raincloud plots</h3> show some love for:  
+Allen M, Poggiali D, Whitaker K et al. Raincloud plots: a multi-platform tool for robust data visualization [version 1; peer review: 2 approved]. Wellcome Open Res 2019, 4:63. DOI: [10.12688/wellcomeopenres.15191.1](doi.org/10.12688/wellcomeopenres.15191.1)  
+
+<h3>Datasets taken from</h3>
+[retrieved: Dec 21st 2019]  
+"Randomly selected" because of easy accessibility to APC prices. If you are aware of other easily accessible data sets, let me know.
+
+* https://www.elsevier.com/__data/promis_misc/j.custom97.xlsx
+* https://media.springernature.com/full/springer-cms/rest/v1/content/17339478/data/v13"
+* https://media.springernature.com/full/springer-cms/rest/v1/content/17278042/data/v17"
+* https://www.degruyter.com/staticfiles/pdfs/titlelist/191022_De_Gruyter_Journals_Yearbooks_2020_Paid_Access_USD.xlsx"
+* https://www.degruyter.com/staticfiles/pdfs/titlelist/191022_De_Gruyter_Journals_Yearbooks_2020_Open_Access_USD.xlsx"
+* https://authorservices.wiley.com/asset/Wiley-Journal-APCs-OnlineOpen.xlsx"
+* https://authorservices.wiley.com/asset/Wiley-Journal-APCs-Open-Access.xlsx"
