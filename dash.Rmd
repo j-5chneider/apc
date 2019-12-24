@@ -224,7 +224,7 @@ aff_r <- reactive({                                                   # compute 
                 summarise(aff = sum(price<=input$pay, na.rm=T))
 })
 
-all <- length(!is.na(apc$price))                                      # ge the absolute number of journals
+all <- sum(!is.na(apc$price))                                         # ge the absolute number of journals
 
 perc_r <- reactive({round(aff_r()/all*100, digits = 1)})              # compute the percentage of journals affordable 
 
